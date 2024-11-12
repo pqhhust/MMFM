@@ -2,61 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import torch
-import torchdiffeq
 from scipy.integrate import odeint
 
 from mmfm.data import u_sine, u_vdp, u_waves
-from mmfm.models import MMFMModelGuidanceWrapper
 from mmfm.utils import color_picker, create_plot_grid
-
-
-def sample_trajectory(
-    model, X, y, device, guidance=1.0, conditional_model=True, atol=1e-9, rtol=1e-7, method="dopri5", steps=1001
-):
-    """Sample trajectory from MMFM model."""
-    settings = {
-        "t": torch.linspace(0, 1, steps, device=device),  # number of time points when sampling
-        "atol": atol,
-        "rtol": rtol,
-        "method": method,
-    }
-    with torch.no_grad():
-        # Conver numpy to tensor
-        if isinstance(X, np.ndarray):
-            X = torch.tensor(X).to(device)
-            y = torch.tensor(y).to(device)
-        else:  # must be torch.tensor
-            X = X.to(device)
-            y = y.to(device)
-
-        if conditional_model:
-            trajectory = torchdiffeq.odeint(
-                lambda t, x: MMFMModelGuidanceWrapper(model, guidance).forward(x, y, t),
-                X.to(device),
-                **settings,
-            )
-        else:
-            trajectory = torchdiffeq.odeint(
-                lambda t, x: model.forward(
-                    torch.cat(
-                        [
-                            x.squeeze(),
-                            t.clone().detach().unsqueeze(0).unsqueeze(0).repeat(x.shape[0], 1),
-                        ],
-                        dim=1,
-                    )
-                ),
-                X.to(device),
-                **settings,
-            )
-
-        # Check if device is cuda device
-        if device.type == "cuda":
-            trajectory = trajectory.cpu()
-        trajectory = trajectory.numpy()
-
-        return trajectory
 
 
 def plot_results_mmfm(

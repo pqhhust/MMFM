@@ -6,12 +6,23 @@ from sklearn.metrics.pairwise import rbf_kernel
 
 
 def eval_metrics(trajectory, X, y, t, guidance, train, kl_div_skip=False):
-    """Prepare tensors for evaluation and compute metrics."""
-    # Permute first two dimensions to match shape of X_{train, valid}
-    # for easy alignment of these tensors later
+    """Prepare tensors for evaluation and compute metrics.
+
+    Args:
+        trajectory (np.ndarray): Trajectory of the samples. Shape (n_samples, n_timepoints, n_features).
+        X (np.ndarray): Ground truth/reference data
+        y (np.ndarray): Ground truth/reference labels.
+        t (np.ndarray): Time points.
+        guidance (float): Guidance strength used for sampling the trajectory.
+        train (bool): Whether the data is training or testing.
+        kl_div_skip (bool): Whether to skip computing the KL divergence.
+    """
+    # Permute first two dimensions to match shape of trajectory to X_{train, valid}
+    # This allows easier alignment of the tensors below
     trajectory = np.swapaxes(trajectory, 0, 1)
     trajectory = trajectory[np.arange(trajectory.shape[0])[:, None], (t * (trajectory.shape[1] - 1)).astype(int)]
 
+    # We loop over all marginals (timepoints) and conditions to compute the metrics
     results = []
     first_unique_c = np.unique(y[:, 0])
     for marginal in range(trajectory.shape[1]):
@@ -50,7 +61,13 @@ def eval_metrics(trajectory, X, y, t, guidance, train, kl_div_skip=False):
 
 
 def compute_metric_set(target, transport, kl_div_skip=False):
-    """Compute a set of metrics between target and transport distributions."""
+    """Compute a set of metrics between target and transport distributions.
+
+    Args:
+        target (np.ndarray): Target distribution(s).
+        transport (np.ndarray): Transport distribution(s).
+        kl_div_skip (bool): Whether to skip computing the KL divergence.
+    """
     mmd = compute_scalar_mmd(target, transport)
     mmd_median = compute_scalar_mmd(target, transport, use_median_heuristic=True)
     wasserstein = wasserstein_loss(target, transport).item()
@@ -94,6 +111,12 @@ def compute_scalar_mmd(target, transport, gammas=None, use_median_heuristic=Fals
     """Compute the MMD distance between two sets of samples.
 
     Adapted from: https://github.com/bunnech/condot/tree/main/condot/losses
+
+    Args:
+        target (np.ndarray): Target distribution(s).
+        transport (np.ndarray): Transport distribution(s).
+        gammas (list): List of gamma values to use for the MMD computation.
+        use_median_heuristic (bool): Whether to use the median heuristic for gamma.
     """
     if gammas is not None and use_median_heuristic:
         raise ValueError("Cannot use both gammas and median heuristic.")

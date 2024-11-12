@@ -25,13 +25,10 @@ def create_plot_grid(n_classes, figsize=None, ncols=None):
     fig, ax = plt.subplots(nrows, ncols, figsize=figsize, sharex=True, sharey=True)
 
     # Flatten the axes array for easy iteration
-    # ax = np.atleast_2d(ax)
     if n_classes == 1:
         ax = [ax]
     if n_classes >= 2:
         ax = np.atleast_2d(ax)
-
-    # ax_flat = ax.ravel()
 
     # Hide any unused subplots
     for i in range(n_classes, len(ax)):

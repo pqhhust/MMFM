@@ -2,8 +2,6 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-
-# from mmfm.fsi import FSI
 import ot
 import pandas as pd
 import seaborn as sns
@@ -16,7 +14,16 @@ from mmfm.utils import color_picker, create_plot_grid
 
 
 class FSI:
-    """Fast & Smooth Interpolation (FSI) model."""
+    """Fast & Smooth Interpolation (FSI) model.
+
+    This class implements the Fast & Smooth Interpolation (FSI) model, which is
+    extended with conditional Monge maps for the multi-marginal setting. The model
+    learns Monge maps between marginals and interpolates between them using cubic splines.
+
+    Reference:
+        Chewi, Sinho, et al. "Fast and smooth interpolation on wasserstein space."
+        International Conference on Artificial Intelligence and Statistics. PMLR, 2021.
+    """
 
     def __init__(self, conditional):
         self.conditional = conditional
