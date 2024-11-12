@@ -42,8 +42,25 @@ for batch in data_loader:
 
 ## Experiments
 
-The code to reproduce the tables and figures of the synthetic and real-world experiments, please check out the code
-in the benchmark folder. First, run the corresponding shell scripts to execute the gridsearch over a set of hyperparmeters.
-Internally they call the `train_mmfm.py` scripts to to the actual model training. Second, run one of the analysis notebooks,
-to reproduce the figures and tables.
+To reproduce the tables and figures of the synthetic and real-world experiments, please check out the code
+in the `./experiments` folder.
 
+### Synthetic Experiments
+
+```shell
+.
+├── data
+├── eval_exp1.ipynb
+├── eval_exp2.ipynb
+├── gridsearch_mmfm.sh      # Retrain all MMFM models (gridsearch wrapper)
+├── gridsearch_totcfm.sh    # Retrain all time-specific CFM models (w/ or w/o shared weights) (gridsearch wrapper)
+├── train_fsi.py            # Train FSI model
+├── train_mmfm.py           # Train MMFM model
+├── train_tcotcfm.py        # Train time- and condition-specific CFM model
+└── train_totcfm.py         # Train time-specific CFM model
+```
+
+First, run the corresponding shell scripts to execute the gridsearch over the hyperparmeters.
+Internally they will call the `train_xyz.py` scripts to train the actual model. Second, run one of the analysis notebooks,
+which will load all the models, select the best ones by evaluating them on the validation data and
+reproduce the figures and tables.
