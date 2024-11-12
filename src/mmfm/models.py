@@ -17,7 +17,13 @@ class MMFMModelGuidanceWrapper:
         self.guidance = guidance
 
     def forward(self, x, c, t):
-        """Forward pass of MMFM model with guidance."""
+        """Forward pass of MMFM model with guidance.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+            c (torch.Tensor): Condition tensor.
+            t (torch.Tensor): Time tensor.
+        """
         c = c.unsqueeze(1)
         # Our model expects a batch, time and feature dimension, so we add it here
         t = t.clone().detach().unsqueeze(0).unsqueeze(0).expand(x.size(0), -1)
@@ -35,16 +41,13 @@ def timestep_embedding(timesteps, dim, max_period=10000):
     Copied from:
     https://github.com/atong01/conditional-flow-matching/blob/main/torchcfm/models/unet/nn.py
 
-    Parameters
-    ----------
-    timesteps: a 1-D Tensor of N indices, one per batch element.
-                      These may be fractional.
-    dim: the dimension of the output.
-    max_period: controls the minimum frequency of the embeddings.
+    Args:
+        timesteps: a 1-D Tensor of N indices, one per batch element. These may be fractional.
+        dim: the dimension of the output.
+        max_period: controls the minimum frequency of the embeddings.
 
-    Returns
-    -------
-    an [N x dim] Tensor of positional embeddings.
+    Returns:
+        an [N x dim] Tensor of positional embeddings.
     """
     if timesteps.dim() == 0:
         timesteps = timesteps.unsqueeze(0)
