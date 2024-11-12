@@ -5,7 +5,7 @@ Implementation of the Multi-Marginal Flow Matching model.
 ## Installation
 
 We recommend installing [Mambaforge](https://github.com/conda-forge/miniforge#mambaforge) to create a new environement for installing the MMFM package.
-Create the environment using the following command and activate it:
+Create and activate the environment using the following commands:
 ```sh
 conda env create -f environment.yml
 
@@ -15,7 +15,7 @@ After installing the dependencies, install the package:
 ```sh
 pip install -e .
 ```
-Keep the `-e` if you want to continue to edit the code.
+Keep the `-e` if you want to continue editing the code.
 
 ## Usage
 
@@ -24,17 +24,20 @@ The following code shows how to train an MMFM model:
 ```python
 from mmfm.conditional_flow_matching import MultiMarginalFlowMatcher
 
-FM = MultiMarginalFlowMatcher()  # see code for default arguments
+MMFM = MultiMarginalFlowMatcher()  # see code for default arguments
 
 for batch in data_loader:
+    # each mini-batch contains a tuple of samples, labels/conditions and 
+    # measurement timepoint
     x, targets, timepoints = batch
     optimizer.zero_grad()
-    t, xt, ut, _, _ = FM.sample_location_and_conditional_flow(x, timepoints)
+    # Next, we sample timepoint, sample and compute the gradient/velocity...
+    t, xt, ut, _, _ = MMFM.sample_location_and_conditional_flow(x, timepoints)
+    # ...and train a network to predict the gradient
     vt = mmfm_model(torch.cat([xt, targets, t], dim=1))
     loss = torch.mean((vt - ut) ** 2)
     loss.backward()
     optimizer.step()
-
 ```
 
 ## Experiments
