@@ -31,7 +31,10 @@ dependencies = [
     "matplotlib",
     "seaborn",
     "tqdm",
-    "torchdiffeq"
+    "torchdiffeq",
+    "jupyterlab",
+    "pot",
+    "cloudpickle",
 ]
 
 [project.optional-dependencies]

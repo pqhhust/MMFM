@@ -16,6 +16,7 @@ After installing the dependencies, install the package:
 pip install -e .
 ```
 Keep the `-e` if you want to continue editing the code.
+To use the GPU support, we recommend to install pytorch with cuda first. 
 
 ## Usage
 

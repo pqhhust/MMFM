@@ -1,10 +1,8 @@
-import warnings
 from pathlib import Path
 import anndata as ad
 import numpy as np
 import ot
 import pandas as pd
-import pertpy
 import pytorch_lightning as pl
 import scanpy as sc
 import torch
@@ -196,6 +194,13 @@ def construct_vector_field(
     t = torch.ones(n_samples) * timepoint
 
     return X, y, t
+
+
+#
+# Synthetic Data
+#
+def dgp_schiebinger():
+    pass
 
 
 def dgp_waves(
@@ -405,6 +410,328 @@ def dgp_waves(
                     ],
                     dim=0,
                 )
+                for t in all_timepoints
+            ],
+            dim=1,
+        )
+
+        y_data = torch.cat(
+            [
+                torch.cat(
+                    [
+                        y_data_aligned[t].get(
+                            c,
+                            torch.tensor(
+                                np.nan * np.ones(n_samples_per_class[c]),
+                                dtype=torch.float32,
+                            ),
+                        )[:, None]
+                        for c in all_classes
+                    ],
+                    dim=0,
+                )
+                for t in all_timepoints
+            ],
+            dim=1,
+        )
+
+        t_data = torch.from_numpy(
+            np.repeat(
+                np.array(sorted(X_data_aligned.keys()))[None, :],
+                X_data.shape[0],
+                axis=0,
+            )
+        )
+
+    else:
+        X_data = {
+            t: torch.cat([X_data[t][c] for c in X_data[t].keys()], dim=0)
+            for t in sorted(X_data.keys())
+        }
+        y_data = {
+            t: torch.cat([y_data[t][c] for c in y_data[t].keys()], dim=0)
+            for t in sorted(y_data.keys())
+        }
+        t_data = {
+            t: torch.cat([t_data[t][c] for c in t_data[t].keys()], dim=0)
+            for t in sorted(t_data.keys())
+        }
+
+        max_dimension = max([X_data[t].shape[0] for t in X_data.keys()])
+        padded_data_xs, padded_data_ys, padded_data_ts = [], [], []
+        for xs, ys, ts in zip(
+            X_data.values(), y_data.values(), t_data.values(), strict=False
+        ):
+            if xs.shape[0] < max_dimension:
+                print("- Upsampling and Padding")
+                # Instead of padding with missings, we pad with random points from the same timepoint
+                idx_sampling = np.random.choice(
+                    xs.shape[0], max_dimension - xs.shape[0], replace=True
+                )
+                padded_data_xs.append(
+                    torch.cat([xs, xs[idx_sampling]], dim=0).unsqueeze(1)
+                )
+                padded_data_ys.append(
+                    torch.cat([ys, ys[idx_sampling]], dim=0).unsqueeze(1)
+                )
+                padded_data_ts.append(
+                    torch.cat([ts, ts[idx_sampling]], dim=0).unsqueeze(1)
+                )
+            else:
+                padded_data_xs.append(xs.unsqueeze(1))
+                padded_data_ys.append(ys.unsqueeze(1))
+                padded_data_ts.append(ts.unsqueeze(1))
+        X_data = torch.cat(padded_data_xs, dim=1)
+        y_data = torch.cat(padded_data_ys, dim=1)
+        t_data = torch.cat(padded_data_ts, dim=1)
+
+        # Shuffle data in 2nd dimension to make sure we do not have OT couplings
+        for t in range(X_data.shape[1]):
+            idx = np.random.permutation(X_data.shape[0])
+            X_data[:, t] = X_data[idx, t]
+            y_data[:, t] = y_data[idx, t]
+
+    # Construct data loaders
+    # Each dataloader should return a batch of samples of dimension [n_samples, n_times, 2]
+    # and a batch of targets of dimension [n_samples, n_times]
+    # and a batch of timepoints of dimension [n_samples, n_times]
+    dataset = torch.utils.data.TensorDataset(X_data, y_data, t_data)
+    if batch_size is None:
+        batch_size = X_data.shape[0]
+    data_loader = torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, shuffle=True
+    )
+
+    # Return as numpy arrays
+    X_data = X_data.cpu().detach().numpy()
+    y_data = y_data.cpu().detach().numpy()
+    t_data = t_data.cpu().detach().numpy()
+
+    return data_loader, X_data, y_data, t_data
+
+
+def dgp_beijing(
+    data_specs,
+    coupling=False,
+    batch_size=32,
+    target="PM2.5",
+    start=None,
+    end=None,
+    n_quarters=None,
+    ns_per_t_and_c=50,
+):
+    """Create data for the beijing experiment."""
+    stations = [
+        "Aotizhongxin",  # 1
+        "Changping",
+        "Dingling",
+        "Dongsi",
+        "Guanyuan",  # 5
+        "Gucheng",
+        "Huairou",  # X
+        "Nongzhanguan",
+        "Shunyi",
+        "Tiantan",  # 10  # X
+        "Wanliu",
+        "Wanshouxigong",
+    ]
+    stations_to_condition = {
+        k: v for k, v in zip(stations, range(1, len(stations) + 1))
+    }
+    condition_to_station = {v: k for k, v in stations_to_condition.items()}
+    data_frames = []
+
+    for station in stations:
+        file_path = (
+            Path("/Users/martin/code/MMFM/data/beijing/PRSA_Data_20130301-20170228")
+            / f"PRSA_Data_{station}_20130301-20170228.csv"
+        )
+        df = pd.read_csv(file_path)
+        df["station"] = station
+        data_frames.append(df)
+
+    df = pd.concat(data_frames, ignore_index=True)
+
+    # Convert to datetime
+    df["datetime"] = pd.to_datetime(df[["year", "month", "day", "hour"]].assign(hour=0))
+    df["quarter"] = df["datetime"].dt.quarter
+
+    if start:
+        df = df[df["year"] >= start]
+    if end:
+        df = df[df["year"] <= end]
+    if n_quarters:
+        # Filter first n_quarters after start/earlierst time point
+        start_year = df["year"].min()
+        start_quarter = df[df["year"] == start_year]["quarter"].min()
+
+        year_steps = n_quarters // 4
+        quarter_steps = n_quarters % 4
+
+        end_year = start_year + year_steps
+        end_quarter = start_quarter + quarter_steps
+
+        df = df[
+            (df["year"] < end_year)
+            | ((df["year"] == end_year) & (df["quarter"] < end_quarter))
+        ]
+
+    # Group by station, year, quarter and calculate means
+    df = df.groupby(["station", "year", "month"]).agg({target: "mean"}).reset_index()
+
+    # Create datetime for easier plotting
+    df["date"] = df["year"].astype(str) + df["month"].astype(str).str.zfill(2)
+    df["timepoint"] = df["date"].rank(method="dense") - 1
+    df["timepoint"] = df["timepoint"].astype(int)
+
+    # Filter out stations that are not relevant for training
+    for condition, v in data_specs.items():
+        station_name = condition_to_station[condition]
+        df = df.loc[
+            (df["station"] != station_name)
+            | (df["station"] == station_name) & (df["timepoint"].isin(v["timepoints"]))
+        ]
+        
+    # Resample each row to have n_samples_per_t_and_c samples 
+    # Sample around var with a variance of 0.1
+    def generate_new_rows(df, k):
+        new_rows = []
+        for index, row in df.iterrows():
+            # Sample k new values from a normal distribution around the value of d
+            new_d_values = np.random.normal(loc=row[target], scale=0.1, size=k)
+            for new_d in new_d_values:
+                new_row = row.copy()
+                new_row[target] = new_d
+                new_rows.append(new_row)
+        return pd.DataFrame(new_rows)
+
+    df = generate_new_rows(df, ns_per_t_and_c)
+
+    X_data = {}
+    y_data = {}
+    t_data = {}
+
+    # Normalize timepoints and round to 3 decimals
+    df["timepoint"] = df["timepoint"] / df["timepoint"].max()
+    df["timepoint"] = df["timepoint"].round(3)
+
+    for t in df["timepoint"].unique():
+        # t = int(t)
+        X_data[t] = {}
+        y_data[t] = {}
+        t_data[t] = {}
+        for station in stations:
+            id = stations_to_condition[station]
+            data = df[(df["station"] == station) & (df["timepoint"] == t)][
+                [target]
+            ].values
+
+            if len(data) == 0:
+                print("No data for", t, station)
+                continue
+
+            X_data[t][id] = torch.tensor(data, dtype=torch.float32)
+            y_data[t][id] = torch.tensor([id] * data.shape[0], dtype=torch.float32)
+            # y_data[t][id] = y_data[t][id].unsqueeze(1)
+            t_data[t][id] = torch.tensor([t] * data.shape[0], dtype=torch.float32)
+            # t_data[t][id] = t_data[t][id].unsqueeze(1)
+
+            # Sample 100 points at random
+            idx = np.random.choice(data.shape[0], ns_per_t_and_c, replace=True)
+            X_data[t][id] = X_data[t][id][idx]
+            y_data[t][id] = y_data[t][id][idx]
+            t_data[t][id] = t_data[t][id][idx]
+
+    X_data[t][id].shape, y_data[t][id].shape, t_data[t][id].shape
+
+    if coupling == "ot":
+        X_data = {
+            t: torch.cat([X_data[t][c] for c in X_data[t].keys()], dim=0)
+            for t in sorted(X_data.keys())
+        }
+        y_data = {
+            t: torch.cat([y_data[t][c] for c in y_data[t].keys()], dim=0)
+            for t in sorted(y_data.keys())
+        }
+        t_data = {
+            t: torch.cat([t_data[t][c] for c in t_data[t].keys()], dim=0)
+            for t in sorted(t_data.keys())
+        }
+
+        max_dimension = max([X_data[t].shape[0] for t in X_data.keys()])
+        padded_data_xs, padded_data_ys, padded_data_ts = [], [], []
+        for xs, ys, ts in zip(
+            X_data.values(), y_data.values(), t_data.values(), strict=False
+        ):
+            if xs.shape[0] < max_dimension:
+                print("- Upsampling and Padding")
+                # Instead of padding with missings, we pad with random points from the same timepoint
+                idx_sampling = np.random.choice(
+                    xs.shape[0], max_dimension - xs.shape[0], replace=True
+                )
+                padded_data_xs.append(
+                    torch.cat([xs, xs[idx_sampling]], dim=0).unsqueeze(1)
+                )
+                padded_data_ys.append(
+                    torch.cat([ys, ys[idx_sampling]], dim=0).unsqueeze(1)
+                )
+                padded_data_ts.append(
+                    torch.cat([ts, ts[idx_sampling]], dim=0).unsqueeze(1)
+                )
+            else:
+                padded_data_xs.append(xs.unsqueeze(1))
+                padded_data_ys.append(ys.unsqueeze(1))
+                padded_data_ts.append(ts.unsqueeze(1))
+
+        X_data = {
+            t: padded_data_xs[i].squeeze(-1)
+            for i, t in enumerate(sorted(X_data.keys()))
+        }
+        y_data = {
+            t: padded_data_ys[i].squeeze() for i, t in enumerate(sorted(y_data.keys()))
+        }
+
+        # Couple samples without labels
+        X_data, y_data, _ = couple_samples_no_int(X_data, y_data)
+
+        timepoints = sorted(X_data.keys())
+        X_data = torch.cat(
+            [X_data[t].unsqueeze(1) for t in sorted(X_data.keys())], dim=1
+        )
+        y_data = torch.cat(
+            [y_data[t].unsqueeze(1) for t in sorted(y_data.keys())], dim=1
+        )
+        t_data = torch.from_numpy(
+            np.repeat(np.array(timepoints)[None, :], X_data.shape[0], axis=0)
+        )
+
+        # timepoints = sorted(X_data.keys())
+        # X_data = torch.cat([X_data[t].unsqueeze(1) for t in sorted(X_data.keys())], dim=1)
+        # y_data = torch.cat([y_data[t].unsqueeze(1) for t in sorted(y_data.keys())], dim=1)
+        # t_data = torch.from_numpy(np.repeat(np.array(timepoints)[None, :], X_data.shape[0], axis=0))
+
+    elif coupling == "cot":
+        # Apply OT per class/target
+        # n_samples = sum([specs["n_samples"] for specs in data_specs.values()])
+        all_timepoints = sorted(X_data.keys())
+        all_classes = sorted({c for t in X_data.keys() for c in X_data[t].keys()})
+        X_data_aligned, y_data_aligned, t_data_aligned = Dict(), Dict(), Dict()
+        for c in all_classes:
+            xs = {t: X_data[t][c] for t in all_timepoints if c in X_data[t].keys()}
+            ys = {t: y_data[t][c] for t in all_timepoints if c in y_data[t].keys()}
+            ts = {t: t_data[t][c] for t in all_timepoints if c in t_data[t].keys()}
+
+            X_coupled, y_coupled, _ = couple_samples_no_int(xs, ys)
+
+            for t in X_coupled.keys():
+                X_data_aligned[t][c] = X_coupled[t]
+                y_data_aligned[t][c] = y_coupled[t]
+                t_data_aligned[t][c] = ts[t]
+
+        n_samples_per_class = {c: X_data_aligned[0][c].shape[0] for c in all_classes}
+        X_data = torch.cat(
+            [
+                torch.cat([X_data_aligned[t].get(c, torch.tensor(np.nan * np.ones((n_samples_per_class[c], 1)), dtype=torch.float32))[:, None, :] for c in all_classes], dim=0)
                 for t in all_timepoints
             ],
             dim=1,
@@ -2642,6 +2969,104 @@ def dgp_iccite_data(
     return X_test, y_test, t_test, n_classes, timepoints, all_classes, ps
 
 
+def dgp_beijing_data(
+    coupling,
+    batch_size,
+    ns_per_t_and_c,
+    dgp,
+    return_data="train-valid",
+    add_time_cond=None,
+    filter_beginning_end=False,
+):
+    if dgp == "a":
+        label_list = [int(x) for x in np.linspace(1, 12, 12)]
+        n_classes = len(label_list)
+
+        target = "PM2.5"
+        start = 2015
+        end = None
+        n_quarters = None
+
+        params_global = {
+            "coupling": coupling,
+            "batch_size": batch_size,
+            "target": target,
+            "start": start,
+            "end": end,
+            "n_quarters": n_quarters,
+            "ns_per_t_and_c": ns_per_t_and_c
+        }
+
+        timepoints_train = [0, 3, 7, 11, 13, 17, 20, 23] if not filter_beginning_end else [0, 23]
+        timepoints_train_holdout1 = [0, 3, 7, 13, 17, 20] if not filter_beginning_end else [0, 20]
+        timepoints_train_holdout2 = [0, 3, 11, 13, 17, 23] if not filter_beginning_end else [0, 23]
+        timepoints_valid = list(range(26))
+        timepoints_test = list(range(26))
+
+        if return_data == "train-valid":
+            # TRAIN
+            kwargs = {
+                "data_specs": {
+                    v: {
+                        "timepoints": timepoints_train,
+                        "condition": v,
+                    }
+                    for v in label_list
+                },
+                **params_global,
+            }
+            kwargs["data_specs"][7] = {
+                "timepoints": timepoints_train_holdout1,
+                "condition": 7.0,
+            }
+            kwargs["data_specs"][10.0] = {
+                "timepoints": timepoints_train_holdout2,
+                "condition": 10.0,
+            }
+            if add_time_cond is not None:
+                for atc in add_time_cond:
+                    current_timepoints = kwargs["data_specs"][atc[0]]["timepoints"]
+                    new_timepoints = sorted(
+                        current_timepoints
+                        + (atc[1] if isinstance(atc[1], list) else [atc[1]])
+                    )
+                    kwargs["data_specs"][atc[0]]["timepoints"] = new_timepoints
+
+            train_loader, X_train, y_train, t_train = dgp_beijing(
+                **kwargs
+            )
+
+            # VALID
+            # TRAIN
+            kwargs = {
+                "data_specs": {
+                    v: {
+                        "timepoints": timepoints_valid,
+                        "condition": v,
+                    }
+                    for v in label_list
+                },
+                **params_global,
+            }
+
+            _, X_valid, y_valid, t_valid = dgp_beijing(**kwargs)
+
+            return (
+                train_loader,
+                X_train,
+                y_train,
+                t_train,
+                X_valid,
+                y_valid,
+                t_valid,
+                n_classes,
+                label_list,
+            )
+
+        elif return_data == "test":
+            pass
+
+
 def dgp_waves_data(
     coupling,
     batch_size,
@@ -2653,7 +3078,6 @@ def dgp_waves_data(
     return_data="train-valid",
     add_time_cond=None,
     filter_beginning_end=False,
-    # seed=0,
 ):
     """Return dataset created by DGP WAVES"""
     params_global = {
@@ -4055,6 +4479,7 @@ if __name__ == "__main__":
 
     PLOT_WAVES = False  # Waves Experiment
     PLOT_ICCITE = False  # ICCITE Experiment
+    PLOT_BEIJING = True  # Beijing Experiment
 
     if PLOT_WAVES:
         ns_per_t_and_c = 50
@@ -4100,12 +4525,82 @@ if __name__ == "__main__":
         plt.show()
 
         fig, ax = plt.subplots(1, 1, figsize=(10, 5), sharex=True, sharey=True)
-        df = pd.DataFrame(X_train.reshape(-1, 2)).assign(target=y_train.reshape(-1, 1), time=t_train.reshape(-1, 1))
+        df = pd.DataFrame(X_train.reshape(-1, 2)).assign(
+            target=y_train.reshape(-1, 1), time=t_train.reshape(-1, 1)
+        )
 
         _plot(ax, X_train, y_train, t_train, odeintegrate=False)
 
         ax.set_title("Train")
         plt.suptitle("DGP2 Data")
+        plt.show()
+
+    if PLOT_BEIJING:
+        ns_per_t_and_c = 50
+
+        label_list = [int(x) for x in np.linspace(1, 12, 12)]
+        n_classes = len(label_list)
+
+        target = "PM2.5"
+        start = 2015
+        end = None
+        n_quarters = None
+        n_months = None
+        classes_first = True
+
+        params_global = {
+            "coupling": "ot",
+            "batch_size": None,
+            "target": target,
+            "start": start,
+            "end": end,
+            "n_quarters": n_quarters,
+            "ns_per_t_and_c": ns_per_t_and_c
+        }
+
+        timepoints_train = [0, 3, 7, 11, 13, 17, 20, 23]
+        timepoints_train_holdout1 = [0, 3, 7, 13, 17, 20]
+        timepoints_train_holdout2 = [0, 3, 11, 13, 17, 23]
+        timepoints_valid = list(range(26))
+        timepoints_test = list(range(26))
+
+        kwargs = {
+            "data_specs": {
+                v: {
+                    "timepoints": timepoints_train,
+                    "condition": v,
+                }
+                for v in label_list
+            },
+            **params_global,
+        }
+        kwargs["data_specs"][7] = {
+            "timepoints": timepoints_train_holdout1,
+            "condition": 7.0,
+        }
+        kwargs["data_specs"][10.0] = {
+            "timepoints": timepoints_train_holdout2,
+            "condition": 10.0,
+        }
+
+        train_loader, X_train, y_train, t_train = dgp_beijing(
+            **kwargs,
+        )
+
+        fig, ax = plt.subplots(1, 1, figsize=(12, 5), sharex=True, sharey=True)
+        df = pd.DataFrame({"var": X_train.reshape(-1, 1).squeeze()}).assign(
+            target=y_train.reshape(-1, 1), time=t_train.reshape(-1, 1)
+        )
+        sns.lineplot(data=df, x="time", y="var", hue="target", ax=ax, palette="tab10")
+        sns.scatterplot(
+            data=df,  x="time", y="var", hue="target", ax=ax, s=50, palette="tab10", legend=False
+        )
+        ax.set_title("Train")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        plt.grid()
+        plt.suptitle("DGP2 Data")
+        plt.legend(title="Condition")
         plt.show()
 
     if PLOT_ICCITE:
@@ -4134,7 +4629,7 @@ if __name__ == "__main__":
                                 y_test,
                                 t_test,
                                 ps,
-                            ) = f_call(  # dgp_iccite(
+                            ) = f_call(
                                 hvg=None,
                                 subsample_frac=None,
                                 use_pca=use_pca,

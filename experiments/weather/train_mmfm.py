@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# import click
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -7,11 +8,11 @@ import pytorch_lightning as pl
 import torch
 from torch.nn.utils import clip_grad_norm_
 
-from mmfm.multi_marginal_fm import MultiMarginalConditionalFlowMatcher
-from mmfm.data import dgp_waves_data
+from mmfm.multi_marginal_fm import MultiMarginalFlowMatcher
+from mmfm.data import dgp_beijing_data
 from mmfm.evaluation import eval_metrics
 from mmfm.trajectory import sample_trajectory
-from mmfm.models import MultiVectorFieldModel
+from mmfm.models import VectorFieldModel
 
 
 
@@ -44,8 +45,6 @@ from mmfm.models import MultiVectorFieldModel
 # @click.option("--num_out_layers", default=3, type=int, help="num_out_layers")
 # @click.option("--optimizer_name", default="adam", type=str, help="Optimizer")
 # @click.option("--dgp", default="a", type=str, help="Data Generation Process")
-# @click.option("--off_diagonal", default=0.0, type=float, help="Off diagonal")
-# @click.option("--data_std", default=0.01, type=float, help="Data standard deviation")
 # @click.option("--dimension", default=2, type=int, help="Dimension")
 # @click.option("--spectral_norm", default=False, type=bool, help="Save results")
 # @click.option("--dropout", default=0.0, type=float, help="Dropout")
@@ -55,7 +54,6 @@ from mmfm.models import MultiVectorFieldModel
 # @click.option("--dropout", default=0.0, type=float, help="Dropout rate")
 # @click.option("--model_type", default="mmfm", type=str, help="Conditional bias")
 # @click.option("--matching", default=None, help="Conditional bias")
-# @click.option("--smoothness_penalty", default=0.0, type=float, help="Smoothness penalty")
 def main(
     seed,
     max_grad_norm,
@@ -85,8 +83,6 @@ def main(
     num_out_layers,
     optimizer_name,
     dgp,
-    off_diagonal,
-    data_std,
     dimension,
     spectral_norm,
     dropout,
@@ -94,7 +90,6 @@ def main(
     keep_constants,
     model_type,
     matching,
-    # smoothness_penalty,
 ):
     """Train MMFM models."""
     # Plenty of arguments are passed with incorrect file types when used with LSF batching
@@ -117,7 +112,7 @@ def main(
     except ValueError:
         pass
 
-    path_name = "/home/rohbeckm/scratch/results/dgp_waves/results_mmfm"
+    path_name = "."  # /home/rohbeckm/scratch/results/dgp_waves/results_mmfm"
     Path(path_name).mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -128,7 +123,7 @@ def main(
     filename = (
         f"dgp_waves_{dgp}_{seed}_{lr}_{flow_variance}_{num_out_layers}_{max_grad_norm}_{p_unconditional}_{ns_per_t_and_c}_{x_latent_dim}_{time_embed_dim}_{cond_embed_dim}_{normalization}_{init_weights}"
         + f"_{activation}_{lrs}_{interpolation}_{conditional_model}_{classifier_free}_{embedding_type}_{sum_time_embed}_{sum_cond_embed}_{n_epochs}_{coupling}_{affine_transform}_{max_norm_embedding}_{batch_size}_{train_test_split}"
-        + f"_{off_diagonal}_{data_std}_{dimension}_{optimizer_name}_{spectral_norm}_{dropout}_{conditional_bias}_{keep_constants}_{matching}_{model_type}"
+        + f"_{dimension}_{optimizer_name}_{spectral_norm}_{dropout}_{conditional_bias}_{keep_constants}_{matching}_{model_type}"
     )
 
     results_path = Path(path_name) / filename
@@ -145,12 +140,9 @@ def main(
     # Construct Data for training and validation
     #
 
-    train_loader, X_train, y_train, t_train, X_valid, y_valid, t_valid, n_classes, label_list = dgp_waves_data(
+    train_loader, X_train, y_train, t_train, X_valid, y_valid, t_valid, n_classes, label_list = dgp_beijing_data(
         coupling,
         batch_size,
-        dimension,
-        off_diagonal,
-        data_std,
         ns_per_t_and_c,
         dgp=dgp,
         return_data="train-valid",
@@ -161,21 +153,7 @@ def main(
     # MFMF
     #
 
-    mmfm_model = MultiVectorFieldModel(
-        model_list={
-            1: [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1],
-            1.5: [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1],
-            2: [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1],
-            2.5: [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1],
-            3: [0, 0.1, 0.5, 0.9, 1],
-            3.5: [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1],
-            4: [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1],
-            4.5: [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1],
-            5: [0, 0.3, 0.5, 0.7, 1],
-            5.5: [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1],
-            6: [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1],
-            6.5: [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1],
-        },
+    mmfm_model = VectorFieldModel(
         data_dim=dimension,
         x_latent_dim=x_latent_dim,
         time_embed_dim=time_embed_dim,
@@ -221,7 +199,7 @@ def main(
     if lrs == "cosine":
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=1000, eta_min=1e-4)
 
-    FM = MultiMarginalConditionalFlowMatcher(
+    FM = MultiMarginalFlowMatcher(
         sigma=flow_variance,
         interpolation=interpolation,
     )
@@ -239,9 +217,9 @@ def main(
                 # Condition 0 means empty set
                 mask = (torch.rand(size=(targets.shape[0], 1)) > p_unconditional).to(device).squeeze()
                 conditions = torch.where(mask, targets[:, 0], 0)[:, None]
-                xt = torch.cat([xt.squeeze(), conditions, t[:, None]], dim=1).to(device)
+                xt = torch.cat([xt.squeeze(-1), conditions, t[:, None]], dim=1).to(device)
             else:
-                xt = torch.cat([xt.squeeze(), t[:, None]], dim=1).to(device)
+                xt = torch.cat([xt.squeeze(-1), t[:, None]], dim=1).to(device)
             vt = mmfm_model(xt)[:, None]
             loss = torch.mean((vt - ut) ** 2)
             # if smoothness_penalty > 0.0:
@@ -289,8 +267,6 @@ def main(
         "train_test_split": train_test_split,
         "optimizer": optimizer_name,
         "dgp": dgp,
-        "off_diagonal": off_diagonal,
-        "data_std": data_std,
         "dimension": dimension,
         "num_out_layers": num_out_layers,
         "spectral_norm": spectral_norm,
@@ -320,6 +296,7 @@ def main(
 
     list_results = []
     for guidance in guidance_range:
+        print(guidance)
         if (p_unconditional == 0.0) & (guidance != 1.0):
             # We do not have an unconditional model, hence guidance should not be different from 1.0
             # since otherwise we mix the conditional with an untrained unconditional model
@@ -336,24 +313,23 @@ def main(
                 "device": device,
                 "guidance": guidance,
                 "conditional_model": conditional_model,
-                "method": "rk4",
-                "steps": 101,
+                "method": "dopri5",
             }
             traj_train = sample_trajectory(X=X_train[:, 0], y=y_train[:, 0], **params)
             traj_valid = sample_trajectory(X=X_valid[:, 0], y=y_valid[:, 0], **params)
 
-            # # Find samples to plot
+            # Find samples to plot
             # n_samples_plot_per_class = 2
             # idx_plot_train = []
             # for c in np.unique(y_train[:, 0]):
             #     idx_plot_train.append(np.where(y_train[:, 0] == c)[0][:n_samples_plot_per_class])
             # idx_plot_train = [x.item() for x in np.array(idx_plot_train).flatten()]
-
+            #
             # idx_plot_valid = []
             # for c in np.unique(y_valid[:, 0]):
             #     idx_plot_valid.append(np.where(y_valid[:, 0] == c)[0][:n_samples_plot_per_class])
             # idx_plot_valid = [x.item() for x in np.array(idx_plot_valid).flatten()]
-
+            #
             # plot_results_mmfm(
             #     X_train,
             #     y_train,
@@ -401,48 +377,40 @@ def main(
 
 
 if __name__ == "__main__":
-    # main()
-    for p_unconditional in [0.0]:
-        for seed in [0, 1, 2, 3, 4]:
-            for x_latent_dim in [8, 16, 32]:  # 32
-                for flow_variance in [1, 0.1, 0.01]:
-                    for lr in [1e-2, 1e-3, 1e-4]:
-                        main(
-                            seed=seed,
-                            max_grad_norm=False,
-                            p_unconditional=p_unconditional,
-                            ns_per_t_and_c=50,
-                            x_latent_dim=x_latent_dim,
-                            time_embed_dim=4,
-                            cond_embed_dim=0,
-                            conditional_model=True,
-                            embedding_type="free",
-                            sum_time_embed=False,
-                            sum_cond_embed=False,
-                            normalization="None",
-                            affine_transform=False,
-                            max_norm_embedding=True,
-                            init_weights="xavier_normal",
-                            activation="LeakyReLU",
-                            lrs="cosine",
-                            interpolation="linear",
-                            n_epochs=300,
-                            coupling="cot",
-                            batch_size="None",
-                            train_test_split=0.5,
-                            lr=lr,
-                            flow_variance=flow_variance,
-                            num_out_layers=3,
-                            optimizer_name="adam",
-                            dgp="i",
-                            off_diagonal=0.0,
-                            data_std=0.025,
-                            dimension=2,
-                            spectral_norm=False,
-                            dropout=0.0,
-                            conditional_bias=False,
-                            keep_constants=False,
-                            model_type="tcotcfm",
-                            matching="emd",
-                            classifier_free=False,
-                        )
+    main(
+        seed=5,
+        max_grad_norm=False,
+        p_unconditional=0.2,
+        ns_per_t_and_c=100,
+        x_latent_dim=16,
+        time_embed_dim=16,
+        cond_embed_dim=16,
+        conditional_model=True,
+        classifier_free=False,
+        embedding_type="free",
+        sum_time_embed=False,
+        sum_cond_embed=False,
+        normalization=None,
+        affine_transform=False,
+        max_norm_embedding=True,
+        init_weights="xavier",
+        activation="SELU",
+        lrs="cosine",
+        interpolation="cubic",
+        n_epochs=300,
+        coupling="cot",
+        batch_size="None",
+        train_test_split=0.5,
+        lr=1e-3,
+        flow_variance=0.01,
+        num_out_layers=3,
+        optimizer_name="adam",
+        dgp="a",
+        dimension=1,
+        spectral_norm=False,
+        dropout=0.0,
+        conditional_bias=False,
+        keep_constants=False,
+        model_type="mmfm",
+        matching=None,
+    )

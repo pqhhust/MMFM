@@ -8,10 +8,10 @@ import pytorch_lightning as pl
 import torch
 from torch.nn.utils import clip_grad_norm_
 
-from mmfm.conditional_flow_matching import MultiMarginalConditionalFlowMatcher
+from mmfm.multi_marginal_fm import MultiMarginalConditionalFlowMatcher
 from mmfm.data import dgp_waves_data
 from mmfm.evaluation import eval_metrics
-from mmfm.mmfm_utils import sample_trajectory
+from mmfm.trajectory import sample_trajectory
 from mmfm.models import MultiVectorFieldModelTCFM
 
 

@@ -27,39 +27,16 @@ class MMFMModelGuidanceWrapper:
         c = c.unsqueeze(1)
         # Our model expects a batch, time and feature dimension, so we add it here
         t = t.clone().detach().unsqueeze(0).unsqueeze(0).expand(x.size(0), -1)
-        inp1 = torch.cat([x.squeeze(), c, t], dim=1)
-        inp2 = torch.cat([x.squeeze(), torch.zeros_like(c), t], dim=1)
+        if x.squeeze().dim() == 1:
+            inp1 = torch.cat([x, c, t], dim=1)
+            inp2 = torch.cat([x, torch.zeros_like(c), t], dim=1)
+        else:
+            inp1 = torch.cat([x.squeeze(), c, t], dim=1)
+            inp2 = torch.cat([x.squeeze(), torch.zeros_like(c), t], dim=1)
         with torch.no_grad():
             out1 = self.mmfm_model(inp1)  # conditional model
             out2 = self.mmfm_model(inp2)  # unconditional model
         return (1 - self.guidance) * out2 + self.guidance * out1
-
-
-def timestep_embedding(timesteps, dim, max_period=10000):
-    """Create sinusoidal timestep embeddings.
-
-    Copied from:
-    https://github.com/atong01/conditional-flow-matching/blob/main/torchcfm/models/unet/nn.py
-
-    Args:
-        timesteps: a 1-D Tensor of N indices, one per batch element. These may be fractional.
-        dim: the dimension of the output.
-        max_period: controls the minimum frequency of the embeddings.
-
-    Returns:
-        an [N x dim] Tensor of positional embeddings.
-    """
-    if timesteps.dim() == 0:
-        timesteps = timesteps.unsqueeze(0)
-    half = dim // 2
-    freqs = torch.exp(-math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half).to(
-        device=timesteps.device
-    )
-    args = timesteps[:, None].float() * freqs[None]
-    embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
-    if dim % 2:
-        embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
-    return embedding
 
 
 class CustomEmbeddingOutModule(nn.Module):
@@ -183,18 +160,26 @@ class VectorFieldModel(nn.Module):
 
             if self.embedding_type == "free":
                 if not len(label_list) == n_classes:
-                    raise ValueError("Number of classes must match the length of label_list")
+                    raise ValueError(
+                        "Number of classes must match the length of label_list"
+                    )
                 # Ensure that label list is a list with integers ranging from 1 to n_classes
                 # If label_list are not integers from 0 to n_classes, we need to map them
                 if set(range(1, len(label_list) + 1)) != set(label_list):
                     self.lookup = True
-                    self.mapping = {label: (i + 1) for i, label in enumerate(sorted(label_list))}
+                    self.mapping = {
+                        label: (i + 1) for i, label in enumerate(sorted(label_list))
+                    }
                 # +1 for the class 0
                 # We could set padding_idx=0, but we learn the embedding instead
-                self.embed_cond = nn.Embedding(n_classes + 1, self.cond_emebd_dim, max_norm=self.max_norm_embedding)
+                self.embed_cond = nn.Embedding(
+                    n_classes + 1, self.cond_emebd_dim, max_norm=self.max_norm_embedding
+                )
             elif self.embedding_type == "ohe":
                 if self.cond_emebd_dim != n_classes:
-                    raise ValueError("One-hot encoding requires cond_embed_dim == n_classes")
+                    raise ValueError(
+                        "One-hot encoding requires cond_embed_dim == n_classes"
+                    )
                 self.cond_emebd_dim = n_classes
 
         # Define non-linear activation
@@ -249,7 +234,9 @@ class VectorFieldModel(nn.Module):
                     self.e_module = nn.Identity()
             else:
                 if self.embedding_type in ["value", "value-all"]:
-                    self.e_module = nn.Linear(1, self.cond_emebd_dim, bias=conditional_bias)
+                    self.e_module = nn.Linear(
+                        1, self.cond_emebd_dim, bias=conditional_bias
+                    )
                     if keep_constants:
                         # Initialize the weights to ones and the bias to zeros
                         # And freeze the weights
@@ -265,7 +252,9 @@ class VectorFieldModel(nn.Module):
         # Output-module
         if not self.conditional_model:
             # We only combine time and x domain
-            input_to_output = x_latent_dim if self.sum_time_embed else x_latent_dim + time_embed_dim
+            input_to_output = (
+                x_latent_dim if self.sum_time_embed else x_latent_dim + time_embed_dim
+            )
         else:
             # We combine time, x domain and conditional domain
             if self.sum_cond_embed & self.sum_time_embed:
@@ -290,9 +279,13 @@ class VectorFieldModel(nn.Module):
                 self.dropout,
             )
         else:
-            self.out_module = self._build_out_module(input_to_output, x_latent_dim, data_dim, spectral_norm, dropout)
+            self.out_module = self._build_out_module(
+                input_to_output, x_latent_dim, data_dim, spectral_norm, dropout
+            )
 
-    def _build_out_module(self, input_size, hidden_size, output_size, spectral_norm, dropout):
+    def _build_out_module(
+        self, input_size, hidden_size, output_size, spectral_norm, dropout
+    ):
         layers = []
         for i in range(self.num_out_layers):
             if i == 0:
@@ -307,7 +300,9 @@ class VectorFieldModel(nn.Module):
 
             layers.append(linear)
 
-            if i < self.num_out_layers - 1:  # Don't add normalization, activation, and dropout after the last layer
+            if (
+                i < self.num_out_layers - 1
+            ):  # Don't add normalization, activation, and dropout after the last layer
                 if self.normalization is not None:
                     layers.append(self._get_normalization_layer(hidden_size))
                 layers.append(self.activation)
@@ -382,22 +377,6 @@ class VectorFieldModel(nn.Module):
         return out
 
 
-def map_tensor_values(tensor, mapping_dict):
-    """Map the values of a tensor to the corresponding values of the dictionary.
-
-    Used to map between indices and classes in the conditional model for using learnable embeddings.
-    """
-    device = tensor.device
-    keys = torch.tensor(list(mapping_dict.keys()), device=device)
-    values = torch.tensor(list(mapping_dict.values()), device=device)
-
-    # Find the indices of the closest keys
-    indices = torch.bucketize(tensor.flatten(), keys)
-    mapped_values = values[indices]
-
-    return mapped_values.reshape(tensor.shape)
-
-
 class MultiVectorFieldModel(nn.Module):
     """Wrapper model that stores N independent VectorFieldModel instances."""
 
@@ -434,7 +413,12 @@ class MultiVectorFieldModel(nn.Module):
             num_models += len(times) - 1
 
         # Create a ModuleList to store N independent VectorFieldModel instances
-        self.models = nn.ModuleList([SimpleModel(data_dim, hidden=6, time_embed_dim=6) for _ in range(num_models + 1)])
+        self.models = nn.ModuleList(
+            [
+                SimpleModel(data_dim, hidden=6, time_embed_dim=6)
+                for _ in range(num_models + 1)
+            ]
+        )
 
         self.mapping_idx_to_tc = Dict()
         idx = 1
@@ -469,7 +453,9 @@ class MultiVectorFieldModel(nn.Module):
                 idx = (from_to_[0] <= t) & (t < from_to_[1]) & (c == cond)
                 if idx.sum() == 0:
                     continue
-                model_output = self.models[model_id](torch.cat([data[idx], t[idx].unsqueeze(1)], dim=1))
+                model_output = self.models[model_id](
+                    torch.cat([data[idx], t[idx].unsqueeze(1)], dim=1)
+                )
                 outputs.append(model_output)
                 idxs.append(idx)
         # If all values in t are 1.0, then use last model
@@ -621,7 +607,9 @@ class MultiVectorFieldModelTCFM(nn.Module):
                 continue
             # original_indices.append(torch.where(idx)[0])
             model_output = self.models[model_id](
-                torch.cat([data[idx], cond[idx].unsqueeze(1), t[idx].unsqueeze(1)], dim=1)
+                torch.cat(
+                    [data[idx], cond[idx].unsqueeze(1), t[idx].unsqueeze(1)], dim=1
+                )
             )
             outputs.append(model_output)
             idxs.append(idx)
@@ -640,3 +628,48 @@ class MultiVectorFieldModelTCFM(nn.Module):
     def __getitem__(self, idx):
         """Allow indexing to access individual VectorFieldModel instances."""
         return self.models[idx]
+
+
+def map_tensor_values(tensor, mapping_dict):
+    """Map the values of a tensor to the corresponding values of the dictionary.
+
+    Used to map between indices and classes in the conditional model for using learnable embeddings.
+    """
+    device = tensor.device
+    keys = torch.tensor(list(mapping_dict.keys()), device=device)
+    values = torch.tensor(list(mapping_dict.values()), device=device)
+
+    # Find the indices of the closest keys
+    indices = torch.bucketize(tensor.flatten(), keys)
+    mapped_values = values[indices]
+
+    return mapped_values.reshape(tensor.shape)
+
+
+def timestep_embedding(timesteps, dim, max_period=10000):
+    """Create sinusoidal timestep embeddings.
+
+    Copied from:
+    https://github.com/atong01/conditional-flow-matching/blob/main/torchcfm/models/unet/nn.py
+
+    Args:
+        timesteps: a 1-D Tensor of N indices, one per batch element. These may be fractional.
+        dim: the dimension of the output.
+        max_period: controls the minimum frequency of the embeddings.
+
+    Returns:
+        an [N x dim] Tensor of positional embeddings.
+    """
+    if timesteps.dim() == 0:
+        timesteps = timesteps.unsqueeze(0)
+    half = dim // 2
+    freqs = torch.exp(
+        -math.log(max_period)
+        * torch.arange(start=0, end=half, dtype=torch.float32)
+        / half
+    ).to(device=timesteps.device)
+    args = timesteps[:, None].float() * freqs[None]
+    embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
+    if dim % 2:
+        embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
+    return embedding
