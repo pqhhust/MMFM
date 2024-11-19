@@ -120,7 +120,7 @@ def main(
         affine_transform = False
 
     filename = (
-        f"dgp_waves_{dgp}_{seed}_{lr}_{flow_variance}_{num_out_layers}_{max_grad_norm}_{p_unconditional}_{ns_per_t_and_c}_{x_latent_dim}_{time_embed_dim}_{cond_embed_dim}_{normalization}_{init_weights}"
+        f"dgp_weather_{dgp}_{seed}_{lr}_{flow_variance}_{num_out_layers}_{max_grad_norm}_{p_unconditional}_{ns_per_t_and_c}_{x_latent_dim}_{time_embed_dim}_{cond_embed_dim}_{normalization}_{init_weights}"
         + f"_{activation}_{lrs}_{interpolation}_{conditional_model}_{classifier_free}_{embedding_type}_{sum_time_embed}_{sum_cond_embed}_{n_epochs}_{coupling}_{affine_transform}_{max_norm_embedding}_{batch_size}_{train_test_split}"
         + f"_{dimension}_{optimizer_name}_{spectral_norm}_{dropout}_{conditional_bias}_{keep_constants}_{matching}_{model_type}"
     )

@@ -40,7 +40,6 @@ def eval_metrics(trajectory, X, y, t, guidance, train, kl_div_skip=False):
         marginal_unique_c = sorted({x.item() for x in np.unique(y[:, marginal]) if np.isfinite(x)})
         for c in marginal_unique_c:
             if c in first_unique_c:
-                print(marginal, c)
                 target = X[:, marginal][y[:, marginal] == c]
                 transport = trajectory[:, marginal][y[:, 0] == c]
                 if marginal == 2 and c == 1:

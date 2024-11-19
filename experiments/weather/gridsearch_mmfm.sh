@@ -17,7 +17,7 @@ for max_norm_embedding in true; do
 for init_weights in "xavier_normal"; do
 for activation in "LeakyReLU"; do
 for lrs in "cosine"; do
-for interpolation in "cubic"; do
+for interpolation in "cubic" "linear"; do
 for n_epochs in 300; do
 for coupling in "cot"; do
 for batch_size in "None"; do
@@ -56,7 +56,7 @@ for matching in "emd"; do
     JOB_NAME=$(echo "$JOB_NAME" | sed 's/true/True/g; s/false/False/g')
 
     if [ -f "/data/m015k/results/dgp_weather/results_mmfm/${JOB_NAME}/df_results.csv" ]; then
-        echo "Job found, skipping..."
+        echo "Job found, skipping... :)"
     else
         echo "Job not found, submitting..."
         python train_mmfm.py \

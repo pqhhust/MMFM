@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 from pathlib import Path
 import anndata as ad
 import numpy as np
@@ -3037,7 +3040,6 @@ def dgp_beijing_data(
             )
 
             # VALID
-            # TRAIN
             kwargs = {
                 "data_specs": {
                     v: {
