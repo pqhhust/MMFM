@@ -543,7 +543,7 @@ def dgp_beijing(
 
     for station in stations:
         file_path = (
-            Path("/Users/martin/code/MMFM/data/beijing/PRSA_Data_20130301-20170228")
+            Path("/home/m015k/code/MMFM/data/beijing/PRSA_Data_20130301-20170228")
             / f"PRSA_Data_{station}_20130301-20170228.csv"
         )
         df = pd.read_csv(file_path)
