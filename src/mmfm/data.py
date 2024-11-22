@@ -630,7 +630,7 @@ def dgp_beijing(
             ].values
 
             if len(data) == 0:
-                print("No data for", t, station)
+                # print("No data for", t, station)
                 continue
 
             X_data[t][id] = torch.tensor(data, dtype=torch.float32)
@@ -645,7 +645,7 @@ def dgp_beijing(
             y_data[t][id] = y_data[t][id][idx]
             t_data[t][id] = t_data[t][id][idx]
 
-    X_data[t][id].shape, y_data[t][id].shape, t_data[t][id].shape
+    # X_data[t][id].shape, y_data[t][id].shape, t_data[t][id].shape
 
     if coupling == "ot":
         X_data = {
@@ -3000,9 +3000,10 @@ def dgp_beijing_data(
             "ns_per_t_and_c": ns_per_t_and_c
         }
 
-        timepoints_train = [0, 3, 7, 11, 13, 17, 20, 23] if not filter_beginning_end else [0, 23]
-        timepoints_train_holdout1 = [0, 3, 7, 13, 17, 20] if not filter_beginning_end else [0, 20]
-        timepoints_train_holdout2 = [0, 3, 11, 13, 17, 23] if not filter_beginning_end else [0, 23]
+        timepoints_train = [0, 2, 4, 6, 7, 11, 12, 14, 16, 18, 19, 23, 25] if not filter_beginning_end else [0, 25]
+        timepoints_train_holdout0 = [0, 5, 9, 10, 17, 20, 25] if not filter_beginning_end else [0, 25]
+        timepoints_train_holdout1 = [0, 3, 13, 17, 20, 25] if not filter_beginning_end else [0, 25]
+        timepoints_train_holdout2 = [0, 4, 11, 13, 17, 23, 25] if not filter_beginning_end else [0, 25]
         timepoints_valid = list(range(26))
         timepoints_test = list(range(26))
 
@@ -3017,6 +3018,10 @@ def dgp_beijing_data(
                     for v in label_list
                 },
                 **params_global,
+            }
+            kwargs["data_specs"][4] = {
+                "timepoints": timepoints_train_holdout0,
+                "condition": 4.0,
             }
             kwargs["data_specs"][7] = {
                 "timepoints": timepoints_train_holdout1,
@@ -3066,7 +3071,30 @@ def dgp_beijing_data(
             )
 
         elif return_data == "test":
-            pass
+            # VALID
+            kwargs = {
+                "data_specs": {
+                    v: {
+                        "timepoints": timepoints_test,
+                        "condition": v,
+                    }
+                    for v in label_list
+                },
+                **params_global,
+            }
+
+            timepoints = sorted(
+                {
+                    item
+                    for sublist in [
+                        v["timepoints"] for k, v in kwargs["data_specs"].items()
+                    ]
+                    for item in sublist
+                }
+            )
+            _, X_test, y_test, t_test = dgp_beijing(**kwargs)
+
+            return X_test, y_test, t_test, n_classes, timepoints, label_list
 
 
 def dgp_waves_data(

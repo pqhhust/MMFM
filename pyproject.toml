@@ -35,6 +35,8 @@ dependencies = [
     "jupyterlab",
     "pot",
     "cloudpickle",
+    "pyarrow",
+    "fastparquet"
 ]
 
 [project.optional-dependencies]

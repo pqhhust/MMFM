@@ -183,7 +183,6 @@ class FSI:
         if not self.splines:
             raise ValueError("Model has not been trained yet.")
 
-        # Plots results on test data
         df = pd.DataFrame(X.reshape(-1, 2)).assign(target=y.reshape(-1, 1))
         df.columns = ["x", "y", "target"]
 
@@ -289,6 +288,119 @@ class FSI:
                     t = np.linspace(0, 1, 101)
                     sol = odeint(u, y0, t, args=(c,))
                     axidx.plot(sol[:, 0], sol[:, 1], color="blue", alpha=0.2, lw=7.5)
+
+        if title is not None:
+            plt.suptitle(title, fontsize=12)
+        plt.tight_layout()
+        if save:
+            file_path = Path(filepath) / f"{filename}.png"
+            plt.savefig(file_path)
+        plt.show()
+        
+    def plot_interpolation_beijing(
+        self,
+        X,
+        y,
+        t,
+        n_classes,
+        idx_plot=None,
+        title="FSI",
+        save=False,
+        filename="",
+        filepath="",
+        coupling="cot",
+        s=10,
+        ncols=None,
+        plot_ode=None,
+    ):
+        """Plot interpolation between Monge maps using cubic splines."""
+        if not self.is_trained:
+            raise ValueError("Model has not been trained yet.")
+        if not self.splines:
+            raise ValueError("Model has not been trained yet.")
+        
+        df = pd.DataFrame(X.reshape(-1, 1)).assign(target=y.reshape(-1, 1), time=t.reshape(-1, 1))
+        df.columns = ["y", "target", "x"]
+
+        # df = pd.DataFrame(X.reshape(-1, 2)).assign(target=y.reshape(-1, 1))
+        # df.columns = ["x", "y", "target"]
+
+        fig, ax, ncols, _ = create_plot_grid(n_classes, ncols=ncols)
+
+        T = 100
+        trajectory = np.nan * np.ones(shape=(T, len(idx_plot), 1))
+        for idx, sample in enumerate(idx_plot):
+            for tx in range(T):
+                transport_c = self.interpolate_from_x0(
+                    X=X[sample, 0][None, :],
+                    y=y[sample, 0] if coupling == "cot" else None,
+                    t_query=tx / T,
+                )
+                trajectory[tx, idx] = transport_c
+
+        color_classes = [
+            int(x) for x in range(len([x for x in np.unique(y) if np.isfinite(x)]))
+        ]
+        colors = color_picker(color_classes)
+        non_nan_targets = [x for x in np.unique(y) if np.isfinite(x)]
+        for k, c in enumerate(non_nan_targets):
+            axidx = ax[k // ncols, k % ncols]
+
+            sns.scatterplot(
+                data=df,
+                x="x",
+                y="y",
+                hue="target",
+                ax=axidx,
+                legend=False,
+                alpha=0.01,
+                palette=colors,
+                s=s,
+            )
+            sns.scatterplot(
+                data=df[df["target"] == c],
+                x="x",
+                y="y",
+                ax=axidx,
+                color=colors[k],
+                s=50,
+            )
+            axidx.set_title(f"c={c}")
+
+        condition_to_class = {
+            c: i for i, c in enumerate([x for x in np.unique(y) if np.isfinite(x)], 1)
+        }
+        # marginal_timepoints = np.linspace(0, len(trajectory) - 1, n_marginals).astype(int)
+        marginal_timepoints = [int(x) for x in (np.unique(t) * (len(trajectory) - 1))]
+        for n, idx in enumerate(idx_plot):
+            p = condition_to_class[y[idx, 0]] - 1
+            # Check if p is integer. If yes, cast, if not, raise error
+            if not p.is_integer():
+                raise ValueError("Target must be an integer.")
+            p = int(p)
+            if n_classes >= 3:
+                axidx = ax[p // ncols, p % ncols]
+            elif n_classes == 2:
+                axidx = ax[0, p]
+            else:
+                axidx = ax[p]
+
+            # Draw a line between consecutive marginal_timepoints
+            for i in range(len(trajectory) - 1):
+                axidx.plot(
+                    [i/100, (i+1)/100],
+                    [trajectory[i, n, 0], trajectory[i + 1, n, 0]],
+                    color="black",
+                    lw=2,
+                )
+            # # Highlight start and end marginal_timepoints
+            # axidx.scatter(
+            #     trajectory[marginal_timepoints, n, 0],
+            #     trajectory[marginal_timepoints, n, 1],
+            #     color="black",
+            #     label="Interpolated",
+            #     s=12.5,
+            # )
 
         if title is not None:
             plt.suptitle(title, fontsize=12)

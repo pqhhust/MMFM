@@ -10,7 +10,8 @@ from tqdm import tqdm
 
 from mmfm.data import dgp_schiebinger, dgp_waves_data
 from mmfm.evaluation import compute_metric_set
-from mmfm.mmfm_utils import plot_results_mmfm, sample_trajectory
+from mmfm.trajectory import sample_trajectory
+from mmfm.plotting import plot_results_mmfm
 from mmfm.models import VectorFieldModel
 
 
@@ -33,6 +34,14 @@ def load_all_fm_models(
             if filter_values is not None:
                 csv_files = [x for x in csv_files if filter_values in str(x)]
             # csv_files = [x for x in csv_files if str(x.parent).endswith("fm")]
+        elif "dgp_weather" in path:
+            csv_files = [x for x in Path(path).rglob("*.csv") if f"dgp_weather_{dgp}_" in str(x)]
+            # if embedding_type is not None:
+            #     csv_files = [x for x in csv_files if embedding_type in str(x)]
+            # if coupling is not None:
+            #     csv_files = [x for x in csv_files if coupling in str(x)]
+            # if filter_values is not None:
+            #     csv_files = [x for x in csv_files if filter_values in str(x)]
         elif "dgp_vdp" in path:
             csv_files = [x for x in Path(path).rglob("*.csv") if f"dgp_vdp_{dgp}_" in str(x)]
         elif "dgp_iccite" in path:
