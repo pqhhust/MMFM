@@ -36,7 +36,8 @@ dependencies = [
     "pot",
     "cloudpickle",
     "pyarrow",
-    "fastparquet"
+    "fastparquet",
+    "click"
 ]
 
 [project.optional-dependencies]

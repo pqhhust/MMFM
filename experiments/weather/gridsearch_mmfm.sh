@@ -10,7 +10,7 @@ MAX_JOBS=12
 
 for seed in 0 1; do
 for max_grad_norm in false; do
-for p_unconditional in 0.0 0.1 0.2; do
+for p_unconditional in 0.1 0.2 0.3; do   # 0.0 
 for ns_per_t_and_c in 50 125; do
 for x_latent_dim in 8 16 32 64; do  #16 32
 for time_embed_dim in 8 16 32 64; do  #16 32
@@ -31,7 +31,7 @@ for coupling in "cot"; do
 for batch_size in "None"; do
 for train_test_split in 0.5; do
 for lr in 0.02 0.01 0.005 0.001; do
-for flow_variance in 1.0 0.1 0.01; do
+for flow_variance in 1.0 0.1 0.01 0.001; do
 for optimizer_name in "adam"; do
 for dgp in "a"; do
 for dimension in 1; do

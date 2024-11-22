@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import click
+# import click
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -16,44 +16,44 @@ from mmfm.trajectory import sample_trajectory
 from mmfm.models import VectorFieldModel
 
 
-@click.command()
-@click.option("--seed", type=int, default=5, help="Random seed")
-@click.option("--max_grad_norm", default=False, type=bool, help="Max gradient norm")
-@click.option("--p_unconditional", default=0.2, type=float, help="Probability of unconditional")
-@click.option("--ns_per_t_and_c", default=100, type=int, help="Number of samples per t and c")
-@click.option("--x_latent_dim", default=64, type=int, help="Model width")
-@click.option("--time_embed_dim", default=64, type=int, help="Model width")
-@click.option("--cond_embed_dim", default=64, type=int, help="Model width")
-@click.option("--conditional_model", default=True, type=bool, help="Model width")
-@click.option("--classifier_free", default=False, type=bool, help="Model width")
-@click.option("--embedding_type", default="free", type=str, help="Model width")
-@click.option("--sum_time_embed", default=False, type=bool, help="Model width")
-@click.option("--sum_cond_embed", default=False, type=bool, help="Model width")
-@click.option("--normalization", default=None, type=str, help="Normalization method")
-@click.option("--affine_transform", default=False, type=bool, help="Use affine transform")
-@click.option("--max_norm_embedding", default=True, type=bool, help="Max norm embedding")
-@click.option("--init_weights", default="xavier", type=str, help="Initialization weights")
-@click.option("--activation", default="SELU", type=str, help="Activation function")
-@click.option("--lrs", default="cosine", type=str, help="Learning rate schedule")
-@click.option("--interpolation", default="cubic", type=str, help="MFMF interpolation method")
-@click.option("--n_epochs", default=300, type=int, help="Number of epochs")
-@click.option("--coupling", default=None, type=str, help="Coupling method")
-@click.option("--batch_size", default=None, help="Batch size")
-@click.option("--train_test_split", default=0.5, type=float, help="Train test split")
-@click.option("--lr", default=1e-2, type=float, help="Learning rate")
-@click.option("--flow_variance", help="Flow variance")
-@click.option("--num_out_layers", default=3, type=int, help="num_out_layers")
-@click.option("--optimizer_name", default="adam", type=str, help="Optimizer")
-@click.option("--dgp", default="a", type=str, help="Data Generation Process")
-@click.option("--dimension", default=2, type=int, help="Dimension")
-@click.option("--spectral_norm", default=False, type=bool, help="Save results")
-@click.option("--dropout", default=0.0, type=float, help="Dropout")
-@click.option("--conditional_bias", default=False, type=bool, help="Conditional bias")
-@click.option("--keep_constants", default=False, type=bool, help="Keep constants")
-@click.option("--spectral_norm", default=False, type=bool, help="Subsample fraction")
-@click.option("--dropout", default=0.0, type=float, help="Dropout rate")
-@click.option("--model_type", default="mmfm", type=str, help="Conditional bias")
-@click.option("--matching", default=None, help="Conditional bias")
+# @click.command()
+# @click.option("--seed", type=int, default=5, help="Random seed")
+# @click.option("--max_grad_norm", default=False, type=bool, help="Max gradient norm")
+# @click.option("--p_unconditional", default=0.2, type=float, help="Probability of unconditional")
+# @click.option("--ns_per_t_and_c", default=100, type=int, help="Number of samples per t and c")
+# @click.option("--x_latent_dim", default=64, type=int, help="Model width")
+# @click.option("--time_embed_dim", default=64, type=int, help="Model width")
+# @click.option("--cond_embed_dim", default=64, type=int, help="Model width")
+# @click.option("--conditional_model", default=True, type=bool, help="Model width")
+# @click.option("--classifier_free", default=False, type=bool, help="Model width")
+# @click.option("--embedding_type", default="free", type=str, help="Model width")
+# @click.option("--sum_time_embed", default=False, type=bool, help="Model width")
+# @click.option("--sum_cond_embed", default=False, type=bool, help="Model width")
+# @click.option("--normalization", default=None, type=str, help="Normalization method")
+# @click.option("--affine_transform", default=False, type=bool, help="Use affine transform")
+# @click.option("--max_norm_embedding", default=True, type=bool, help="Max norm embedding")
+# @click.option("--init_weights", default="xavier", type=str, help="Initialization weights")
+# @click.option("--activation", default="SELU", type=str, help="Activation function")
+# @click.option("--lrs", default="cosine", type=str, help="Learning rate schedule")
+# @click.option("--interpolation", default="cubic", type=str, help="MFMF interpolation method")
+# @click.option("--n_epochs", default=300, type=int, help="Number of epochs")
+# @click.option("--coupling", default=None, type=str, help="Coupling method")
+# @click.option("--batch_size", default=None, help="Batch size")
+# @click.option("--train_test_split", default=0.5, type=float, help="Train test split")
+# @click.option("--lr", default=1e-2, type=float, help="Learning rate")
+# @click.option("--flow_variance", help="Flow variance")
+# @click.option("--num_out_layers", default=3, type=int, help="num_out_layers")
+# @click.option("--optimizer_name", default="adam", type=str, help="Optimizer")
+# @click.option("--dgp", default="a", type=str, help="Data Generation Process")
+# @click.option("--dimension", default=2, type=int, help="Dimension")
+# @click.option("--spectral_norm", default=False, type=bool, help="Save results")
+# @click.option("--dropout", default=0.0, type=float, help="Dropout")
+# @click.option("--conditional_bias", default=False, type=bool, help="Conditional bias")
+# @click.option("--keep_constants", default=False, type=bool, help="Keep constants")
+# @click.option("--spectral_norm", default=False, type=bool, help="Subsample fraction")
+# @click.option("--dropout", default=0.0, type=float, help="Dropout rate")
+# @click.option("--model_type", default="mmfm", type=str, help="Conditional bias")
+# @click.option("--matching", default=None, help="Conditional bias")
 def main(
     seed,
     max_grad_norm,
@@ -114,7 +114,7 @@ def main(
 
     path_name = "/data/m015k/results/dgp_weather/results_mmfm"
     Path(path_name).mkdir(parents=True, exist_ok=True)
-    device =  torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     pl.seed_everything(seed)
     if normalization is None:
@@ -128,7 +128,7 @@ def main(
 
     results_path = Path(path_name) / filename
     results_path.mkdir(parents=True, exist_ok=True)
-    save = True
+    save = False
     guidance_range = np.linspace(0, 1, 11, endpoint=True).tolist() + [1.5, 2.0, 3.0]
 
     # Check if results_path folder exists and contains a csv file
@@ -235,6 +235,8 @@ def main(
             scheduler.step()
     
     end_time = timeit.timeit()
+    print()
+    print()
     print(f"Training time: {end_time - start_time:.2f} seconds")
 
     #
@@ -380,41 +382,41 @@ def main(
 
 
 if __name__ == "__main__":
-    main()
-    # main(
-    #     seed=5,
-    #     max_grad_norm=False,
-    #     p_unconditional=0.2,
-    #     ns_per_t_and_c=100,
-    #     x_latent_dim=16,
-    #     time_embed_dim=16,
-    #     cond_embed_dim=16,
-    #     conditional_model=True,
-    #     classifier_free=False,
-    #     embedding_type="free",
-    #     sum_time_embed=False,
-    #     sum_cond_embed=False,
-    #     normalization=None,
-    #     affine_transform=False,
-    #     max_norm_embedding=True,
-    #     init_weights="xavier",
-    #     activation="SELU",
-    #     lrs="cosine",
-    #     interpolation="cubic",
-    #     n_epochs=300,
-    #     coupling="cot",
-    #     batch_size="None",
-    #     train_test_split=0.5,
-    #     lr=1e-3,
-    #     flow_variance=0.01,
-    #     num_out_layers=3,
-    #     optimizer_name="adam",
-    #     dgp="a",
-    #     dimension=1,
-    #     spectral_norm=False,
-    #     dropout=0.0,
-    #     conditional_bias=False,
-    #     keep_constants=False,
-    #     model_type="mmfm",
-    #     matching=None,
-    # )
+    # main()
+    main(
+        seed=5,
+        max_grad_norm=False,
+        p_unconditional=0.2,
+        ns_per_t_and_c=50,
+        x_latent_dim=16,
+        time_embed_dim=16,
+        cond_embed_dim=16,
+        conditional_model=True,
+        classifier_free=False,
+        embedding_type="free",
+        sum_time_embed=False,
+        sum_cond_embed=False,
+        normalization=None,
+        affine_transform=False,
+        max_norm_embedding=True,
+        init_weights="xavier",
+        activation="SELU",
+        lrs="cosine",
+        interpolation="cubic",
+        n_epochs=300,
+        coupling="cot",
+        batch_size="None",
+        train_test_split=0.5,
+        lr=1e-2,
+        flow_variance=0.01,
+        num_out_layers=3,
+        optimizer_name="adam",
+        dgp="a",
+        dimension=1,
+        spectral_norm=False,
+        dropout=0.0,
+        conditional_bias=False,
+        keep_constants=False,
+        model_type="mmfm",
+        matching=None,
+    )
