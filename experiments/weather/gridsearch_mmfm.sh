@@ -6,9 +6,9 @@ count_jobs() {
 }
 
 # Maximum number of parallel jobs
-MAX_JOBS=12
+MAX_JOBS=24
 
-for seed in 0 1; do
+for seed in 0 1 2; do
 for max_grad_norm in false; do
 for p_unconditional in 0.1 0.2 0.3; do   # 0.0 
 for ns_per_t_and_c in 50 125; do
@@ -33,7 +33,7 @@ for train_test_split in 0.5; do
 for lr in 0.02 0.01 0.005 0.001; do
 for flow_variance in 1.0 0.1 0.01 0.001; do
 for optimizer_name in "adam"; do
-for dgp in "a"; do
+for dgp in "b"; do
 for dimension in 1; do
 for num_out_layers in 3; do
 for spectral_norm in false; do

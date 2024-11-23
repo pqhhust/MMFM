@@ -3095,6 +3095,121 @@ def dgp_beijing_data(
             _, X_test, y_test, t_test = dgp_beijing(**kwargs)
 
             return X_test, y_test, t_test, n_classes, timepoints, label_list
+        
+    if dgp == "b":
+        label_list = [int(x) for x in np.linspace(1, 12, 12)]
+        n_classes = len(label_list)
+
+        target = "NO2"
+        start = 2015
+        end = None
+        n_quarters = None
+
+        params_global = {
+            "coupling": coupling,
+            "batch_size": batch_size,
+            "target": target,
+            "start": start,
+            "end": end,
+            "n_quarters": n_quarters,
+            "ns_per_t_and_c": ns_per_t_and_c
+        }
+
+        timepoints_train = [0, 6, 11, 13, 19, 25] if not filter_beginning_end else [0, 25]
+        timepoints_train_holdout0 = [0, 6, 13, 25] if not filter_beginning_end else [0, 25]
+        timepoints_train_holdout1 = [0, 6, 13, 25] if not filter_beginning_end else [0, 25]
+        timepoints_train_holdout2 = [0, 11, 19, 25] if not filter_beginning_end else [0, 25]
+        timepoints_valid = list(range(26))
+        timepoints_test = list(range(26))
+
+        if return_data == "train-valid":
+            # TRAIN
+            kwargs = {
+                "data_specs": {
+                    v: {
+                        "timepoints": timepoints_train,
+                        "condition": v,
+                    }
+                    for v in label_list
+                },
+                **params_global,
+            }
+            kwargs["data_specs"][4] = {
+                "timepoints": timepoints_train_holdout0,
+                "condition": 4.0,
+            }
+            kwargs["data_specs"][7] = {
+                "timepoints": timepoints_train_holdout1,
+                "condition": 7.0,
+            }
+            kwargs["data_specs"][10.0] = {
+                "timepoints": timepoints_train_holdout2,
+                "condition": 10.0,
+            }
+            if add_time_cond is not None:
+                for atc in add_time_cond:
+                    current_timepoints = kwargs["data_specs"][atc[0]]["timepoints"]
+                    new_timepoints = sorted(
+                        current_timepoints
+                        + (atc[1] if isinstance(atc[1], list) else [atc[1]])
+                    )
+                    kwargs["data_specs"][atc[0]]["timepoints"] = new_timepoints
+
+            train_loader, X_train, y_train, t_train = dgp_beijing(
+                **kwargs
+            )
+
+            # VALID
+            kwargs = {
+                "data_specs": {
+                    v: {
+                        "timepoints": timepoints_valid,
+                        "condition": v,
+                    }
+                    for v in label_list
+                },
+                **params_global,
+            }
+
+            _, X_valid, y_valid, t_valid = dgp_beijing(**kwargs)
+
+            return (
+                train_loader,
+                X_train,
+                y_train,
+                t_train,
+                X_valid,
+                y_valid,
+                t_valid,
+                n_classes,
+                label_list,
+            )
+
+        elif return_data == "test":
+            # VALID
+            kwargs = {
+                "data_specs": {
+                    v: {
+                        "timepoints": timepoints_test,
+                        "condition": v,
+                    }
+                    for v in label_list
+                },
+                **params_global,
+            }
+
+            timepoints = sorted(
+                {
+                    item
+                    for sublist in [
+                        v["timepoints"] for k, v in kwargs["data_specs"].items()
+                    ]
+                    for item in sublist
+                }
+            )
+            _, X_test, y_test, t_test = dgp_beijing(**kwargs)
+
+            return X_test, y_test, t_test, n_classes, timepoints, label_list
 
 
 def dgp_waves_data(
