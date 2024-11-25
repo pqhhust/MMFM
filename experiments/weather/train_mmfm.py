@@ -114,7 +114,7 @@ def main(
 
     path_name = "/data/m015k/results/dgp_weather/results_mmfm"
     Path(path_name).mkdir(parents=True, exist_ok=True)
-    device =  torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     pl.seed_everything(seed)
     if normalization is None:
@@ -358,8 +358,8 @@ def main(
             #     ncols=5,
             # )
 
-            df_results_train = eval_metrics(traj_train, X_train, y_train, t_train, guidance, train=True)
-            df_results_valid = eval_metrics(traj_valid, X_valid, y_valid, t_valid, guidance, train=False)
+            df_results_train = eval_metrics(traj_train, X_train, y_train, t_train, guidance, train=True, kl_div_skip=True)
+            df_results_valid = eval_metrics(traj_valid, X_valid, y_valid, t_valid, guidance, train=False, kl_div_skip=True)
             list_results.extend([df_results_train, df_results_valid])
 
         except AssertionError as e:

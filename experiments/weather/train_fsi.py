@@ -96,8 +96,8 @@ if __name__ == "__main__":
     seeds = [0, 1, 2]
     ns_per_t_and_c = [50]
     train_test_split = [0.5]
-    dgp = ["a"]
-    add_time_cond =  [None] # [[(5, 0.55)]]
+    dgp = ["a", "b"]
+    add_time_cond =  [[(7, 11)]]
 
     param_combinations = itertools.product(
         seeds, ns_per_t_and_c, train_test_split, dgp, add_time_cond

@@ -3038,6 +3038,7 @@ def dgp_beijing_data(
                         current_timepoints
                         + (atc[1] if isinstance(atc[1], list) else [atc[1]])
                     )
+                    print(atc[0], new_timepoints)
                     kwargs["data_specs"][atc[0]]["timepoints"] = new_timepoints
 
             train_loader, X_train, y_train, t_train = dgp_beijing(

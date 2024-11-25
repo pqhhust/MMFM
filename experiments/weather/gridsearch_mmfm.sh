@@ -6,15 +6,18 @@ count_jobs() {
 }
 
 # Maximum number of parallel jobs
-MAX_JOBS=24
+MAX_JOBS=32
 
+for interpolation in "cubic" "linear"; do
 for seed in 0 1 2; do
 for max_grad_norm in false; do
 for p_unconditional in 0.1 0.2 0.3; do   # 0.0 
-for ns_per_t_and_c in 50 125; do
-for x_latent_dim in 8 16 32 64; do  #16 32
-for time_embed_dim in 8 16 32 64; do  #16 32
-for cond_embed_dim in 8 16 32 64; do  #16 32
+for ns_per_t_and_c in 50; do  # 125
+for x_latent_dim in 4 8 16 32; do  #64
+for time_embed_dim in 4 8 16 32; do  #64
+for cond_embed_dim in 4 8 16 32; do  #64
+for lr in 0.02 0.01 0.001; do  # 0.005
+for flow_variance in 1.0 0.1 0.01; do   #  0.001
 for conditional_model in true; do
 for embedding_type in "free"; do
 for sum_time_embed in false; do
@@ -25,15 +28,12 @@ for max_norm_embedding in true; do
 for init_weights in "xavier_normal"; do
 for activation in "LeakyReLU"; do
 for lrs in "cosine"; do
-for interpolation in "cubic" "linear"; do
 for n_epochs in 300; do
 for coupling in "cot"; do
 for batch_size in "None"; do
 for train_test_split in 0.5; do
-for lr in 0.02 0.01 0.005 0.001; do
-for flow_variance in 1.0 0.1 0.01 0.001; do
 for optimizer_name in "adam"; do
-for dgp in "b"; do
+for dgp in "a"; do  # "b"
 for dimension in 1; do
 for num_out_layers in 3; do
 for spectral_norm in false; do
